@@ -444,13 +444,18 @@ if forests_file and trucks_file:
             for row_idx in range(1, ws_alloc.max_row + 1):
                 ws_alloc.row_dimensions[row_idx].height = 72
 
+            # Set font size 16 for all cells in Forest Allocations
+            for row in ws_alloc.iter_rows(min_row=1, max_row=ws_alloc.max_row, min_col=1, max_col=ws_alloc.max_column):
+                for cell in row:
+                    cell.font = Font(size=16, bold=cell.font.bold)
+
             # --- Write grouped daily plan as separate tables for each day ---
             ws = writer.book.create_sheet('Daily Forest-Truck Plan')
             start_row = 1
             for day in sorted(grouped_daily_plan.keys()):
                 # Day label
                 ws.cell(row=start_row, column=1, value=f"Day {day}")
-                ws.cell(row=start_row, column=1).font = Font(bold=True, size=13)
+                ws.cell(row=start_row, column=1).font = Font(bold=True, size=16)
                 start_row += 1
                 # Header
                 ws.cell(row=start_row, column=1, value="Forest")
@@ -459,7 +464,7 @@ if forests_file and trucks_file:
                 for col in range(1, 4):
                     cell = ws.cell(row=start_row, column=col)
                     cell.fill = header_fill
-                    cell.font = header_font
+                    cell.font = Font(size=16, bold=True)
                     cell.alignment = Alignment(wrap_text=True, horizontal='center', vertical='center')
                 header_row = start_row
                 start_row += 1
@@ -470,6 +475,7 @@ if forests_file and trucks_file:
                     ws.cell(row=start_row, column=3, value=row['Total Trucks'])
                     for col in range(1, 4):
                         cell = ws.cell(row=start_row, column=col)
+                        cell.font = Font(size=16)
                         cell.alignment = Alignment(wrap_text=True, horizontal='center', vertical='center')
                         cell.border = border
                     start_row += 1
