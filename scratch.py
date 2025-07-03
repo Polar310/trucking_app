@@ -83,17 +83,36 @@ def main():
         )
         forests_df = forests_df.rename(columns={"trip_hours": "turnaround_time"})
         forests_df["volume_left"] = forests_df["forest_id"].map(remaining_by_forest)
-        if maximize_profit:
-            forests_df["profit_per_trip"] = forests_df.apply(lambda row: df.loc[(df.reset_index()["truck_id"].iloc[0], row["forest_id"]), "profit_per_trip"], axis=1)
+        # Fix KeyError: assign profit_per_trip using any valid truck_id for each forest
+        def get_profit_per_trip(row):
+            for truck_id in df.reset_index()["truck_id"].unique():
+                key = (truck_id, row["forest_id"])
+                if key in df.index:
+                    return df.loc[key, "profit_per_trip"]
+            return float('nan')  # or 0
+        forests_df["profit_per_trip"] = forests_df.apply(get_profit_per_trip, axis=1)
         extra_assignments = helper_maxflow.top_up_with_flow(idle_df, forests_df)
         if extra_assignments:
-            new_plan = pd.DataFrame([
-                {"truck_id": a["truck_id"], "forest_id": a["forest_id"], "trips_planned": a["trips"], "cbm_per_truck": df.loc[(int(a["truck_id"]), a["forest_id"]), "cbm_per_truck"]}
-                for a in extra_assignments
-            ])
-            print("\nAdded assignments (max-flow, full trips):")
-            print(new_plan.to_markdown(index=False))
-            print(f"Extra CBM from max-flow full trips: {new_plan['trips_planned'].mul(new_plan['cbm_per_truck']).sum():,.0f} m³")
+            rows = []
+            for a in extra_assignments:
+                key = (int(a["truck_id"]), a["forest_id"])
+                if key in df.index:
+                    cbm_per_truck = df.loc[key, "cbm_per_truck"]
+                    rows.append({
+                        "truck_id": a["truck_id"],
+                        "forest_id": a["forest_id"],
+                        "trips_planned": a["trips"],
+                        "cbm_per_truck": cbm_per_truck
+                    })
+                else:
+                    print(f"Skipping invalid assignment: {key}")
+            new_plan = pd.DataFrame(rows)
+            if not new_plan.empty:
+                print("\nAdded assignments (max-flow, full trips):")
+                print(new_plan.to_markdown(index=False))
+                print(f"Extra CBM from max-flow full trips: {new_plan['trips_planned'].mul(new_plan['cbm_per_truck']).sum():,.0f} m³")
+            else:
+                print("No valid assignments could be made in the second pass (max-flow, full trips).")
         else:
             print("No additional assignments could be made in the second pass (max-flow, full trips).")
         # --- Now run half-trip max-flow ---

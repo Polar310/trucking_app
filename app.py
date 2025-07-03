@@ -206,7 +206,26 @@ if forests_file and trucks_file:
     forests_df["profit_per_trip"] = forests_df["cbm_per_truck"] * forests_df["profit_per_cbm_euros"]
     # Pass profit_per_trip to helper_maxflow
     extra_assignments = helper_maxflow.top_up_with_flow(idle_df, forests_df)
-    extra_cbm = sum(a["cbm_collected"] for a in extra_assignments) if extra_assignments else 0
+    # --- Safe max-flow assignment handling (reflecting scratch.py logic) ---
+    rows = []
+    for a in extra_assignments:
+        key = (int(a["truck_id"]), a["forest_id"])
+        if key in df.index:
+            cbm_per_truck = df.loc[key, "cbm_per_truck"]
+            rows.append({
+                "truck_id": a["truck_id"],
+                "forest_id": a["forest_id"],
+                "trips_planned": a["trips"],
+                "cbm_per_truck": cbm_per_truck
+            })
+        # else: could log or st.write(f"Skipping invalid assignment: {key}")
+    new_plan = pd.DataFrame(rows)
+    if not new_plan.empty:
+        st.subheader("🟢 Extra Assignments from Max-Flow (Full Trips)")
+        st.dataframe(new_plan, use_container_width=True)
+        st.write(f"Extra CBM from max-flow full trips: {new_plan['trips_planned'].mul(new_plan['cbm_per_truck']).sum():,.0f} m³")
+    else:
+        st.info("No valid assignments could be made in the second pass (max-flow, full trips).")
 
     half_assignments = helper_maxflow.half_trip_maxflow(idle_df, forests_df)
     half_cbm = sum(a["cbm_collected"] for a in half_assignments) if half_assignments else 0
