@@ -1,0 +1,1320 @@
+#scratch.py
+# import streamlit as st
+# import pandas as pd
+# from preprocess import build_model_input
+# from optimiser import solve_week
+# import helper_maxflow
+# import tempfile
+# import time
+
+# # --- Custom ARISE Theme CSS ---
+# st.markdown("""
+#     <style>
+#     .stApp {
+#         background-color: #fff !important;
+#         color: #111 !important;
+#     }
+#     h1, h2, h3, h4, h5, h6 {
+#         color: #111 !important;
+#         margin-top: 0.5em;
+#         margin-bottom: 0.5em;
+#     }
+#     .stMetric, .stAlert, .stDataFrame {
+#         background-color: #fff !important;
+#         color: #111 !important;
+#         border-radius: 14px;
+#         padding: 1.5em 1.5em 1.5em 1.5em !important;
+#         margin-bottom: 1.5em !important;
+#         border: 2px solid #388e3c22;
+#         box-shadow: 0 2px 12px 0 #1976d233;
+#     }
+#     .stMetric {
+#         border-left: 6px solid #388e3c;
+#         margin-right: 1em;
+#     }
+#     .stDataFrame {
+#         border-left: 6px solid #1976d2;
+#     }
+#     .stButton>button {
+#         background-color: #388e3c !important;
+#         color: #fff !important;
+#         border-radius: 8px;
+#         border: none;
+#         padding: 0.75em 2em;
+#         font-size: 1.1em;
+#         margin-top: 0.5em;
+#         margin-bottom: 0.5em;
+#     }
+#     .stButton>button:hover {
+#         background-color: #11f8f4 !important; /* Teal on hover */
+#         color: #11f8f4 !important;
+#     }
+#     .stAlert {
+#         background-color: transparent !important;
+#         color: #11f8f4 !important;
+#         border: none !important;
+#         box-shadow: none !important;
+#         padding: 1.2em 1.2em 1.2em 1.2em !important;
+#     }
+#     .stFileUploader, .stSelectbox {
+#         background-color: #fff !important;
+#         color: #089258 !important;
+#         border-radius: 10px;
+#         padding: 1em 1em 1em 1em !important;
+#     }
+#     /* Remove top padding/margin from the main container */
+#     .block-container {
+#         padding-top: 0.5rem !important;
+#         margin-top: 0 !important;
+#     }
+#     .main {
+#         padding-top: 0 !important;
+#         margin-top: 0 !important;
+#     }
+#     /* Reduce margin below the subtitle */
+#     .block-container > div:nth-child(4) {
+#         background: transparent !important;
+#         box-shadow: none !important;
+#         border: none !important;
+#         padding: 0 !important;
+#         margin-bottom: 0.2em !important;
+#     }
+#     </style>
+# """, unsafe_allow_html=True)
+
+# # --- ARISE Logo (update path as needed) ---
+# st.image("arise_logo.png", width=180)
+
+# # --- Ship/Boat Emoji Animation ---
+# ship_emojis = ["🎄"]
+
+# st.set_page_config(page_title="Truck Forest Allocation Optimizer", layout="wide")
+# st.title("🪵Truck Forest Allocation Optimizer")
+# st.markdown("<span style='font-size:1.2em; color:#90caf9; font-weight:500;'>Optimize truck allocations for maximum CBM collection from forests to NKOK, Libreville</span>", unsafe_allow_html=True)
+
+# # --- Inputs ---
+# col1, col2, col3 = st.columns(3)
+# with col1:
+#     forests_file = st.file_uploader("Upload Forests CSV", type="csv")
+# with col2:
+#     trucks_file = st.file_uploader("Upload Trucks CSV", type="csv")
+# with col3:
+#     season = st.selectbox("Season", ["dry", "rain"])
+
+# if forests_file and trucks_file:
+#     # --- Animated Title While Loading ---
+#     title_placeholder = st.empty()
+#     start_time = time.time()
+#     for i in range(12):  # ~1.2s animation (adjust as needed)
+#         title_placeholder.title(f"{ship_emojis[i % len(ship_emojis)]} Truck Forest Allocation Optimizer")
+#         time.sleep(0.1)
+#     # Save uploaded files to temp files for pipeline compatibility
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as f1, \
+#          tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as f2:
+#         f1.write(forests_file.getbuffer())
+#         f2.write(trucks_file.getbuffer())
+#         forests_path = f1.name
+#         trucks_path = f2.name
+
+#     # Build model input
+#     df = build_model_input(forests_csv=forests_path, trucks_csv=trucks_path, season=season)
+
+#     # Run optimizer
+#     plan = solve_week(df)
+#     elapsed = time.time() - start_time
+#     # Show final emoji after loading
+#     title_placeholder.title(f"{ship_emojis[int(time.time()) % len(ship_emojis)]} Truck Forest Allocation Optimizer")
+
+#     # Compute summary statistics
+#     total_cbm = (plan["trips_planned"] * plan["cbm_per_truck"]).sum()
+#     total_trips = plan["trips_planned"].sum()
+#     trucks_used = plan["truck_id"].nunique()
+#     trucks_total = pd.read_csv(trucks_path)["truck_id"].nunique()
+#     trucks_unused = trucks_total - trucks_used
+
+#     # Per-forest summary
+#     forest_volumes = df.reset_index().drop_duplicates("forest_id").set_index("forest_id")["weekly_stockpile_cbm"]
+#     plan["depleted_cbm"] = plan["trips_planned"] * plan["cbm_per_truck"]
+#     depleted_by_forest = plan.groupby("forest_id")["depleted_cbm"].sum()
+#     remaining_by_forest = {forest: forest_volumes[forest] - depleted_by_forest.get(forest, 0) for forest in forest_volumes.index}
+
+#     # Calculate total hours spent per forest
+#     plan["hours_used"] = plan["trips_planned"] * plan.apply(
+#         lambda row: df.loc[(row["truck_id"], row["forest_id"]), "trip_hours"], axis=1
+#     )
+#     # Prepare forest allocations DataFrame (show all forests)
+#     all_forests = pd.DataFrame({"Forest": df.reset_index()["forest_id"].unique()})
+#     # Add truck assignments per forest
+#     truck_lists = plan.groupby("forest_id")["truck_id"].apply(lambda x: ', '.join(map(str, x.unique()))).reset_index()
+#     truck_lists = truck_lists.rename(columns={"forest_id": "Forest", "truck_id": "Trucks Assigned"})
+#     allocations = plan.groupby("forest_id").agg(
+#         CBM=("depleted_cbm", "sum"),
+#         Trips=("trips_planned", "sum"),
+#         Hours=("hours_used", "sum")
+#     ).reset_index()
+#     allocations = allocations.rename(columns={"forest_id": "Forest"})
+#     allocations["Remaining"] = allocations["Forest"].map(remaining_by_forest)
+#     allocations["Efficiency (CBM/hr)"] = allocations.apply(
+#         lambda row: row["CBM"] / row["Hours"] if row["Hours"] > 0 else 0, axis=1
+#     )
+#     # Merge with all forests to ensure all are shown
+#     allocations = all_forests.merge(allocations, on="Forest", how="left").fillna(0)
+#     # Merge truck lists
+#     allocations = allocations.merge(truck_lists, on="Forest", how="left").fillna("")
+#     # Partially harvested forests
+#     partials = allocations[allocations["Remaining"] > 0]
+
+#     # --- Max-flow (full trips) ---
+#     trucks = pd.read_csv(trucks_path)
+#     assigned_trucks = set(plan["truck_id"].astype(str))
+#     unassigned = trucks[~trucks["truck_id"].astype(str).isin(assigned_trucks)]
+#     idle_df = unassigned.copy()
+#     idle_df["available_hours"] = idle_df["drive_hours"] - idle_df.get("maintenance_hours", 0)
+#     forests_with_leftover = [f for f in forest_volumes.index if remaining_by_forest[f] > 0]
+#     forests_df = (
+#         df.reset_index()
+#           .drop_duplicates("forest_id")
+#           .set_index("forest_id")
+#           .loc[forests_with_leftover]
+#           .reset_index()[["forest_id", "trip_hours", "cbm_per_truck"]]
+#     )
+#     forests_df = forests_df.rename(columns={"trip_hours": "turnaround_time"})
+#     forests_df["volume_left"] = forests_df["forest_id"].map(remaining_by_forest)
+
+#     extra_assignments = helper_maxflow.top_up_with_flow(idle_df, forests_df)
+#     extra_cbm = sum(a["cbm_collected"] for a in extra_assignments) if extra_assignments else 0
+
+#     half_assignments = helper_maxflow.half_trip_maxflow(idle_df, forests_df)
+#     half_cbm = sum(a["cbm_collected"] for a in half_assignments) if half_assignments else 0
+
+#     # --- Output to Streamlit ---
+#     summary = {
+#         "Total CBM": total_cbm,
+#         "Total Trips": total_trips,
+#         "Trucks Used": trucks_used,
+#         "Trucks Unused": trucks_unused,
+#         "Extra CBM (full trips)": extra_cbm,
+#         "Extra CBM (half trips)": half_cbm,
+#     }
+
+#     # --- Output: Summary Statistics ---
+#     st.subheader("📊 Summary Statistics")
+#     col1, col2, col3, col4 = st.columns(4)
+#     col1.metric("Total CBM", f"{summary['Total CBM']:,}")
+#     col2.metric("Total Trips", f"{summary['Total Trips']:,}")
+#     col3.metric("Trucks Used", f"{summary['Trucks Used']:,}")
+#     col4.metric("Trucks Unused", f"{summary['Trucks Unused']:,}")
+#     # Move financials to a new row below
+#     col5, col6, col7 = st.columns(3)
+#     col5.metric("Total Revenue", f"{summary['Total Revenue']:,.0f}")
+#     col6.metric("Total Cost", f"{summary['Total Cost']:,.0f}")
+#     col7.metric("Total Profit", f"{summary['Total Profit']:,.0f}")
+
+#     # --- Output: Unused Trucks ---
+#     if not unassigned.empty:
+#         st.subheader("🚚 Unused Trucks")
+#         st.dataframe(unassigned[["truck_id", "type"]], use_container_width=True)
+#         unused_csv = unassigned[["truck_id", "type"]].to_csv(index=False).encode('utf-8')
+#         st.download_button(
+#             label="Download Unused Trucks as CSV",
+#             data=unused_csv,
+#             file_name="unused_trucks.csv",
+#             mime="text/csv",
+#         )
+
+#     # --- Output: Forest Allocations ---
+#     st.subheader("🌲 Forest Allocations")
+#     st.dataframe(allocations, use_container_width=True)
+
+#     # --- Export options ---
+#     st.subheader("💵 Export Results")
+#     csv = allocations.to_csv(index=False).encode('utf-8')
+#     st.download_button(
+#         label="Download as CSV",
+#         data=csv,
+#         file_name="forest_allocations.csv",
+#         mime="text/csv",
+#     )
+#     # st.markdown("""
+#     # **Export to Google Sheets:**
+#     # 1. Download the CSV above.
+#     # 2. Open [Google Sheets](https://sheets.google.com) and import the CSV file.
+    
+#     # **Export to Microsoft Excel:**
+#     # 1. Download the CSV above.
+#     # 2. Open Microsoft Excel and open the CSV file.
+#     # """)
+# else:
+#     st.title(f"{ship_emojis[0]} Truck Forest Allocation Optimizer")
+#     st.markdown("<span style='font-size:1.1em; color:#111; font-weight:500; background:transparent; display:block;'>Please upload both CSV files and select a season.</span>", unsafe_allow_html=True) 
+
+
+
+app.py - 
+
+import streamlit as st
+import pandas as pd
+from preprocess import build_model_input
+from optimiser import solve_week
+import helper_maxflow
+import tempfile
+import time
+
+# --- Custom ARISE Theme CSS ---
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #fff !important;
+        color: #111 !important;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        color: #111 !important;
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
+    }
+    .stMetric, .stAlert, .stDataFrame {
+        background-color: #fff !important;
+        color: #111 !important;
+        border-radius: 14px;
+        padding: 1.5em 1.5em 1.5em 1.5em !important;
+        margin-bottom: 1.5em !important;
+        border: 2px solid #388e3c22;
+        box-shadow: 0 2px 12px 0 #1976d233;
+    }
+    .stMetric {
+        border-left: 6px solid #388e3c;
+        margin-right: 1em;
+    }
+    .stDataFrame {
+        border-left: 6px solid #1976d2;
+    }
+    .stButton>button {
+        background-color: #388e3c !important;
+        color: #fff !important;
+        border-radius: 8px;
+        border: none;
+        padding: 0.75em 2em;
+        font-size: 1.1em;
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
+    }
+    .stButton>button:hover {
+        background-color: #11f8f4 !important; /* Teal on hover */
+        color: #11f8f4 !important;
+    }
+    .stAlert {
+        background-color: transparent !important;
+        color: #11f8f4 !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 1.2em 1.2em 1.2em 1.2em !important;
+    }
+    .stFileUploader, .stSelectbox {
+        background-color: #fff !important;
+        color: #089258 !important;
+        border-radius: 10px;
+        padding: 1em 1em 1em 1em !important;
+    }
+    /* Remove top padding/margin from the main container */
+    .block-container {
+        padding-top: 0.5rem !important;
+        margin-top: 0 !important;
+    }
+    .main {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    /* Reduce margin below the subtitle */
+    .block-container > div:nth-child(4) {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin-bottom: 0.2em !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- ARISE Logo (update path as needed) ---
+st.image("arise_logo.png", width=180)
+
+# --- Ship/Boat Emoji Animation ---
+ship_emojis = ["🎄"]
+
+st.set_page_config(page_title="Truck Forest Allocation Optimizer", layout="wide")
+st.title("🪵Truck Forest Allocation Optimizer")
+st.markdown("<span style='font-size:1.2em; color:#90caf9; font-weight:500;'>Optimize truck allocations for maximum CBM collection from forests to NKOK, Libreville</span>", unsafe_allow_html=True)
+
+# --- Inputs ---
+col1, col2, col3 = st.columns(3)
+with col1:
+    forests_file = st.file_uploader("Upload Forests CSV", type="csv")
+with col2:
+    trucks_file = st.file_uploader("Upload Trucks CSV", type="csv")
+with col3:
+    season = st.selectbox("Season", ["dry", "rain"])
+
+# --- User input for cost per CBM ---
+# (No longer needed, cost is not used)
+
+if forests_file and trucks_file:
+    # --- Animated Title While Loading ---
+    title_placeholder = st.empty()
+    start_time = time.time()
+    for i in range(12):  # ~1.2s animation (adjust as needed)
+        title_placeholder.title(f"{ship_emojis[i % len(ship_emojis)]} Truck Forest Allocation Optimizer")
+        time.sleep(0.1)
+    # Save uploaded files to temp files for pipeline compatibility
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as f1, \
+         tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as f2:
+        f1.write(forests_file.getbuffer())
+        f2.write(trucks_file.getbuffer())
+        forests_path = f1.name
+        trucks_path = f2.name
+
+    # Build model input
+    df = build_model_input(forests_csv=forests_path, trucks_csv=trucks_path, season=season)
+
+    # Run optimizer (maximize profit)
+    plan = solve_week(df, maximize_profit=True)
+    elapsed = time.time() - start_time
+    # Show final emoji after loading
+    title_placeholder.title(f"{ship_emojis[int(time.time()) % len(ship_emojis)]} Truck Forest Allocation Optimizer")
+
+    # Ensure 'hours_used' exists in plan
+    if 'hours_used' not in plan.columns:
+        plan['hours_used'] = plan.apply(lambda row: row['trips_planned'] * df.loc[(row['truck_id'], row['forest_id']), 'trip_hours'], axis=1)
+
+    # Ensure 'profit' column exists in plan
+    if 'profit' not in plan.columns:
+        plan['profit'] = plan.apply(lambda row: row['trips_planned'] * df.loc[(row['truck_id'], row['forest_id']), 'cbm_per_truck'] * df.loc[(row['truck_id'], row['forest_id']), 'profit_per_cbm_euros'], axis=1)
+
+    # --- After plan is created, compute per-forest volumes and remaining_by_forest ---
+    forest_volumes = df.reset_index().drop_duplicates("forest_id").set_index("forest_id")["weekly_stockpile_cbm"]
+    plan["depleted_cbm"] = plan["trips_planned"] * plan["cbm_per_truck"]
+    depleted_by_forest = plan.groupby("forest_id")["depleted_cbm"].sum()
+    remaining_by_forest = {forest: forest_volumes[forest] - depleted_by_forest.get(forest, 0) for forest in forest_volumes.index}
+
+    # Aggregate allocations
+    allocations = plan.groupby("forest_id").agg(
+        CBM=("depleted_cbm", "sum"),
+        Trips=("trips_planned", "sum"),
+        Hours=("hours_used", "sum"),
+        Profit=("profit", "sum")
+    ).reset_index()
+    allocations = allocations.rename(columns={"forest_id": "Forest"})
+    allocations["Remaining"] = allocations["Forest"].map(remaining_by_forest)
+    allocations["Efficiency (CBM/hr)"] = allocations.apply(
+        lambda row: row["CBM"] / row["Hours"] if row["Hours"] > 0 else 0, axis=1
+    )
+    # After allocations groupby, ensure all forests are shown in the table
+    all_forests = pd.DataFrame({"Forest": df.reset_index()["forest_id"].unique()})
+    allocations = allocations.merge(all_forests, on="Forest", how="right")
+    # Fill NaN for numeric columns with 0
+    for col in ["Volume collected", "Trips", "Hours used", "Profit", "Remaining", "Efficiency (CBM/hr)"]:
+        if col in allocations.columns:
+            allocations[col] = allocations[col].fillna(0)
+    # Merge truck lists into allocations and fill NaN with ''
+    truck_lists = plan.groupby("forest_id")["truck_id"].apply(lambda x: ', '.join(map(str, x.unique()))).reset_index()
+    truck_lists = truck_lists.rename(columns={"forest_id": "Forest", "truck_id": "Trucks Assigned"})
+    allocations = allocations.merge(truck_lists, on="Forest", how="left")
+    if "Trucks Assigned" in allocations.columns:
+        allocations["Trucks Assigned"] = allocations["Trucks Assigned"].fillna("")
+    # Partially harvested forests
+    partials = allocations[allocations["Remaining"] > 0]
+
+    # --- Max-flow (full trips) ---
+    trucks = pd.read_csv(trucks_path)
+    assigned_trucks = set(plan["truck_id"].astype(str))
+    unassigned = trucks[~trucks["truck_id"].astype(str).isin(assigned_trucks)]
+    idle_df = unassigned.copy()
+    idle_df["available_hours"] = idle_df["drive_hours"] - idle_df.get("maintenance_hours", 0)
+    # Include all forests with volume > 0 and profit_per_cbm_euros > 0
+    forests_with_leftover = [
+        f for f in forest_volumes.index
+        if forest_volumes[f] > 0 and (df.reset_index().set_index('forest_id').loc[f, 'profit_per_cbm_euros'] > 0).any()
+    ]
+    forests_df = (
+        df.reset_index()
+          .drop_duplicates("forest_id")
+          .set_index("forest_id")
+          .loc[forests_with_leftover]
+          .reset_index()[["forest_id", "trip_hours", "cbm_per_truck", "profit_per_cbm_euros"]]
+    )
+    forests_df = forests_df.rename(columns={"trip_hours": "turnaround_time"})
+    forests_df["volume_left"] = forests_df["forest_id"].map(remaining_by_forest)
+    forests_df["profit_per_trip"] = forests_df["cbm_per_truck"] * forests_df["profit_per_cbm_euros"]
+    # Pass profit_per_trip to helper_maxflow
+    extra_assignments = helper_maxflow.top_up_with_flow(idle_df, forests_df)
+    extra_cbm = sum(a["cbm_collected"] for a in extra_assignments) if extra_assignments else 0
+
+    half_assignments = helper_maxflow.half_trip_maxflow(idle_df, forests_df)
+    half_cbm = sum(a["cbm_collected"] for a in half_assignments) if half_assignments else 0
+
+    # --- Compute summary statistics for the summary dictionary ---
+    total_cbm = (plan['trips_planned'] * plan['cbm_per_truck']).sum()
+    total_trips = plan['trips_planned'].sum()
+    trucks_used = plan['truck_id'].nunique()
+    trucks_total = pd.read_csv(trucks_path)['truck_id'].nunique()
+    trucks_unused = trucks_total - trucks_used
+
+    # --- Output to Streamlit ---
+    total_profit = allocations['Profit'].sum()
+    summary = {
+        "Total CBM": total_cbm,
+        "Total Trips": total_trips,
+        "Trucks Used": trucks_used,
+        "Trucks Unused": trucks_unused,
+        "Total Profit Euros": total_profit,
+    }
+
+    # --- Output: Summary Statistics ---
+    st.subheader("📊 Summary Statistics")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total CBM", f"{summary['Total CBM']:,}")
+    col2.metric("Total Trips", f"{summary['Total Trips']:,}")
+    col3.metric("Trucks Used", f"{summary['Trucks Used']:,}")
+    col4.metric("Trucks Unused", f"{summary['Trucks Unused']:,}")
+    # Only show profit in a new row
+    col5 = st.columns(1)[0]
+    col5.metric("Total Profit (Euros)", f"€ {summary['Total Profit Euros']:,.0f}")
+
+    # --- Output: Unused Trucks ---
+    if not unassigned.empty:
+        st.subheader("🚚 Unused Trucks")
+        st.dataframe(unassigned[["truck_id", "type"]], use_container_width=True)
+        unused_csv = unassigned[["truck_id", "type"]].to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download Unused Trucks as CSV",
+            data=unused_csv,
+            file_name="unused_trucks.csv",
+            mime="text/csv",
+        )
+
+    # --- Output: Forest Allocations ---
+    st.subheader("🌲 Forest Allocations")
+    st.dataframe(allocations, use_container_width=True)
+
+    # --- Export options ---
+    st.subheader("💵 Export Results")
+    csv = allocations.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download as CSV",
+        data=csv,
+        file_name="forest_allocations.csv",
+        mime="text/csv",
+    )
+    # st.markdown("""
+    # **Export to Google Sheets:**
+    # 1. Download the CSV above.
+    # 2. Open [Google Sheets](https://sheets.google.com) and import the CSV file.
+    
+    # **Export to Microsoft Excel:**
+    # 1. Download the CSV above.
+    # 2. Open Microsoft Excel and open the CSV file.
+    # """)
+else:
+    st.title(f"{ship_emojis[0]} Truck Forest Allocation Optimizer")
+    st.markdown("<span style='font-size:1.1em; color:#111; font-weight:500; background:transparent; display:block;'>Please upload both CSV files and select a season.</span>", unsafe_allow_html=True) 
+    
+
+
+helper_maxflow - 
+# import networkx as nx
+# import pandas as pd
+
+# def top_up_with_flow(idle_df: pd.DataFrame,
+#                      forests_df: pd.DataFrame) -> list[dict]:
+#     """
+#     Parameters
+#     ----------
+#     idle_df       columns = truck_id, available_hours, type
+#     forests_df    columns = forest_id, turnaround_time, cbm_per_truck, volume_left
+
+#     Returns
+#     -------
+#     assignments   list of dicts with keys:
+#                   truck_id, forest_id, trips, cbm_collected, hours_used
+#     """
+#     print("Idle trucks for max-flow:", len(idle_df))
+#     print("Forests with leftover volume:", len(forests_df))
+#     print(idle_df)
+#     print(forests_df)
+
+#     G = nx.DiGraph()
+#     G.add_node("S"); G.add_node("T")
+
+#     # source → truck
+#     for _, t in idle_df.iterrows():
+#         max_trips_anywhere = int(t.available_hours // forests_df.turnaround_time.min())
+#         if max_trips_anywhere:
+#             G.add_edge("S", t.truck_id, capacity=max_trips_anywhere)
+
+#     # forest → sink
+#     for _, f in forests_df.iterrows():
+#         trips_left = int(f.volume_left // f.cbm_per_truck)
+#         if trips_left:
+#             G.add_edge(f.forest_id, "T", capacity=trips_left)
+
+#     # truck → forest edges
+#     for _, t in idle_df.iterrows():
+#         for _, f in forests_df.iterrows():
+#             trips_cap = int(min(
+#                 t.available_hours // f.turnaround_time,
+#                 f.volume_left // f.cbm_per_truck))
+#             if trips_cap:
+#                 G.add_edge(t.truck_id, f.forest_id,
+#                            capacity=trips_cap,
+#                            weight=-f.cbm_per_truck)   # maximise CBM
+
+#     flow = nx.max_flow_min_cost(G, "S", "T")
+
+#     # ------------------ decode ------------------
+#     assignments = []
+#     for t in idle_df.truck_id:
+#         if t not in flow: continue
+#         for f, trips in flow[t].items():
+#             if trips:
+#                 forest_row = forests_df.set_index('forest_id').loc[f]
+#                 cbm = trips * forest_row.cbm_per_truck
+#                 assignments.append(dict(
+#                     truck_id=t,
+#                     forest_id=f,
+#                     trips=int(trips),
+#                     cbm_collected=cbm,
+#                     hours_used=trips * forest_row.turnaround_time
+#                 ))
+#     return assignments
+
+# def half_trip_maxflow(idle_df: pd.DataFrame, forests_df: pd.DataFrame) -> list[dict]:
+#     """
+#     Assigns 'half-trips' from idle trucks to forests with leftover volume.
+#     Each truck-forest pair is eligible if:
+#       - available_hours >= turnaround_time / 2
+#       - volume_left >= cbm_per_truck / 2
+
+#     Returns a list of assignments:
+#       - truck_id, forest_id, trips (always 0.5), cbm_collected, hours_used
+#     """
+#     G = nx.DiGraph()
+#     G.add_node("S")
+#     G.add_node("T")
+
+#     # Source → truck (each truck can do at most one half-trip)
+#     for _, t in idle_df.iterrows():
+#         if t.available_hours > 0:
+#             G.add_edge("S", t.truck_id, capacity=1)
+
+#     # Forest → sink (each forest can accept as many half-trips as it has volume for)
+#     for _, f in forests_df.iterrows():
+#         max_half_trips = int(f.volume_left // (f.cbm_per_truck / 2))
+#         if max_half_trips > 0:
+#             G.add_edge(f.forest_id, "T", capacity=max_half_trips)
+
+#     # Truck → forest (only if both half-trip constraints are met)
+#     for _, t in idle_df.iterrows():
+#         for _, f in forests_df.iterrows():
+#             if (
+#                 t.available_hours >= f.turnaround_time / 2
+#                 and f.volume_left >= f.cbm_per_truck / 2
+#             ):
+#                 G.add_edge(
+#                     t.truck_id,
+#                     f.forest_id,
+#                     capacity=1,  # Only one half-trip per truck-forest pair
+#                     weight=-f.cbm_per_truck / 2,  # maximize CBM
+#                 )
+
+#     flow = nx.max_flow_min_cost(G, "S", "T")
+
+#     # Decode assignments
+#     assignments = []
+#     for t in idle_df.truck_id:
+#         if t not in flow:
+#             continue
+#         for f, trips in flow[t].items():
+#             if trips:
+#                 forest_row = forests_df.set_index('forest_id').loc[f]
+#                 cbm = 0.5 * forest_row.cbm_per_truck
+#                 assignments.append(dict(
+#                     truck_id=t,
+#                     forest_id=f,
+#                     trips=0.5,
+#                     cbm_collected=cbm,
+#                     hours_used=forest_row.turnaround_time / 2
+#                 ))
+#     return assignments 
+
+
+
+
+import networkx as nx
+import pandas as pd
+
+def top_up_with_flow(idle_df: pd.DataFrame,
+                     forests_df: pd.DataFrame) -> list[dict]:
+    """
+    Parameters
+    ----------
+    idle_df       columns = truck_id, available_hours, type
+    forests_df    columns = forest_id, turnaround_time, cbm_per_truck, volume_left
+
+    Returns
+    -------
+    assignments   list of dicts with keys:
+                  truck_id, forest_id, trips, cbm_collected, hours_used
+    """
+    print("Idle trucks for max-flow:", len(idle_df))
+    print("Forests with leftover volume:", len(forests_df))
+    print(idle_df)
+    print(forests_df)
+
+    G = nx.DiGraph()
+    G.add_node("S"); G.add_node("T")
+
+    # source → truck
+    for _, t in idle_df.iterrows():
+        max_trips_anywhere = int(t.available_hours // forests_df.turnaround_time.min())
+        if max_trips_anywhere:
+            G.add_edge("S", t.truck_id, capacity=max_trips_anywhere)
+
+    # forest → sink
+    for _, f in forests_df.iterrows():
+        trips_left = int(f.volume_left // f.cbm_per_truck)
+        if trips_left:
+            G.add_edge(f.forest_id, "T", capacity=trips_left)
+
+    # Ensure profit_per_trip is in forests_df
+    if 'profit_per_cbm_euros' in forests_df.columns:
+        forests_df['profit_per_trip'] = forests_df['cbm_per_truck'] * forests_df['profit_per_cbm_euros']
+    else:
+        forests_df['profit_per_trip'] = 0
+    # truck → forest edges
+    for _, t in idle_df.iterrows():
+        for _, f in forests_df.iterrows():
+            trips_cap = int(min(
+                t.available_hours // f.turnaround_time,
+                f.volume_left // f.cbm_per_truck))
+            if trips_cap:
+                G.add_edge(t.truck_id, f.forest_id,
+                           capacity=trips_cap,
+                           weight=-f.profit_per_trip)   # maximise profit
+
+    flow = nx.max_flow_min_cost(G, "S", "T")
+
+    # ------------------ decode ------------------
+    assignments = []
+    for t in idle_df.truck_id:
+        if t not in flow: continue
+        for f, trips in flow[t].items():
+            if trips:
+                forest_row = forests_df.set_index('forest_id').loc[f]
+                cbm = trips * forest_row.cbm_per_truck
+                assignments.append(dict(
+                    truck_id=t,
+                    forest_id=f,
+                    trips=int(trips),
+                    cbm_collected=cbm,
+                    hours_used=trips * forest_row.turnaround_time
+                ))
+    return assignments
+
+def half_trip_maxflow(idle_df: pd.DataFrame, forests_df: pd.DataFrame) -> list[dict]:
+    """
+    Assigns 'half-trips' from idle trucks to forests with leftover volume.
+    Each truck-forest pair is eligible if:
+      - available_hours >= turnaround_time / 2
+      - volume_left >= cbm_per_truck / 2
+
+    Returns a list of assignments:
+      - truck_id, forest_id, trips (always 0.5), cbm_collected, hours_used
+    """
+    G = nx.DiGraph()
+    G.add_node("S")
+    G.add_node("T")
+
+    # Source → truck (each truck can do at most one half-trip)
+    for _, t in idle_df.iterrows():
+        if t.available_hours > 0:
+            G.add_edge("S", t.truck_id, capacity=1)
+
+    # Forest → sink (each forest can accept as many half-trips as it has volume for)
+    for _, f in forests_df.iterrows():
+        max_half_trips = int(f.volume_left // (f.cbm_per_truck / 2))
+        if max_half_trips > 0:
+            G.add_edge(f.forest_id, "T", capacity=max_half_trips)
+
+    # Truck → forest (only if both half-trip constraints are met)
+    for _, t in idle_df.iterrows():
+        for _, f in forests_df.iterrows():
+            if (
+                t.available_hours >= f.turnaround_time / 2
+                and f.volume_left >= f.cbm_per_truck / 2
+            ):
+                G.add_edge(
+                    t.truck_id,
+                    f.forest_id,
+                    capacity=1,  # Only one half-trip per truck-forest pair
+                    weight=-f.cbm_per_truck / 2,  # maximize CBM
+                )
+
+    flow = nx.max_flow_min_cost(G, "S", "T")
+
+    # Decode assignments
+    assignments = []
+    for t in idle_df.truck_id:
+        if t not in flow:
+            continue
+        for f, trips in flow[t].items():
+            if trips:
+                forest_row = forests_df.set_index('forest_id').loc[f]
+                cbm = 0.5 * forest_row.cbm_per_truck
+                assignments.append(dict(
+                    truck_id=t,
+                    forest_id=f,
+                    trips=0.5,
+                    cbm_collected=cbm,
+                    hours_used=forest_row.turnaround_time / 2
+                ))
+    return assignments 
+
+
+
+optimiser.py - 
+# """
+# Builds and solves weekly mixed integer linear program (MILP)
+
+# Decision variable - 
+# ------------------------
+# x[t,f] = int number of round trips truck (t) performs to forest (f)
+#          during the coming week 
+ 
+         
+# objective - 
+# ------------------------
+# Maximise Σ score [t,f] * x[t,f]
+# ( score = cubic metre / truck-day )
+
+
+# Constraints 
+# ------------------------
+# 1) per truck calendar day budget 
+#     Σ_f trip_days[f] * x[t,f] <= drive_days[t]
+    
+# 2) per forest weekly trip cap 
+#     Σ_t x[t,f] <= max_trips_wk[f]
+    
+# 3) x int and >= 0 ( Implicit in OR-tools IntVar )
+# """
+
+# import math
+# import pandas as pd #pandas library 
+# from ortools.linear_solver import pywraplp #OR tools is library for solving optimizing probs (scheduling, routing, and assignments)
+# #pywraplp part of OR tools, creates and solves linear programming and integer programming 
+
+# #CBC = coin or branch and cut solver - open source solver that can handle linear and int programming probs 
+# #telling OR tools to use CBC solver 
+
+# def solve_week(df: pd.DataFrame) -> pd.DataFrame:
+#     solver = pywraplp.Solver.CreateSolver("CBC")
+
+#     # Print problem size for diagnosis
+#     n_trucks = df.index.get_level_values(0).nunique()
+#     n_forests = df.index.get_level_values(1).nunique()
+#     print(f"Number of trucks: {n_trucks}")
+#     print(f"Number of forests: {n_forests}")
+#     print(f"Number of variables (truck-forest pairs): {len(df)}")
+
+#     # 1. Decision variables: x[t, f] = number of trips truck t makes to forest f (continuous)
+#     var = {}
+#     for (t, f), row in df.iterrows():
+#         # Upper bound: max trips possible for this truck to this forest (in hours), capped at 15
+#         if row.trip_hours > 0:
+#             phys_lim = row.drive_hours / row.trip_hours
+#         else:
+#             phys_lim = 0
+#         ub = min(max(0, phys_lim), 15)
+#         var[(t, f)] = solver.NumVar(0, ub, f"x_{t}_{f}")  # Continuous variable
+
+#     # 2. Constraint: Each truck can't exceed its available drive hours
+#     for t, t_rows in df.groupby(level=0):
+#         solver.Add(
+#             solver.Sum(row.trip_hours * var[(t, f)]
+#                        for (_, f), row in t_rows.iterrows())
+#             <= t_rows.drive_hours.iloc[0]
+#         )
+
+#     # 3. Constraint: Each forest can't have more logs picked up than its available volume
+#     for f, f_rows in df.groupby(level=1):
+#         solver.Add(
+#             solver.Sum(row.cbm_per_truck * var[(t, f)]
+#                        for (t, _), row in f_rows.iterrows())
+#             <= f_rows.weekly_stockpile_cbm.iloc[0]
+#         )
+
+#     # 4. Objective: Maximize total CBM delivered
+#     total_cbm = solver.Sum(df.loc[(t, f), "cbm_per_truck"] * var[(t, f)]
+#                            for (t, f) in var)
+#     solver.Maximize(total_cbm)
+
+#     # # 5. Set a 10-minute (600,000 ms) time limit
+#     # solver.set_time_limit(600000)
+
+#     # 6. Solve and extract the plan
+#     status = solver.Solve()
+#     if status not in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
+#         raise RuntimeError("CBC did not find an optimal or feasible solution within the time limit")
+#     if status == pywraplp.Solver.FEASIBLE:
+#         print("⚠️  Time limit reached: returning best feasible solution found.")
+
+#     def round_down_to_half(x):
+#         return math.floor(x * 2) / 2
+
+#     plan = (
+#         pd.DataFrame(
+#             [
+#                 (t, f, round(round_down_to_half(var[(t, f)].solution_value()), 1))
+#                 for (t, f) in var
+#             ],
+#             columns=["truck_id", "forest_id", "trips_planned"],
+#         )
+#         .query("trips_planned > 0.01")
+#         .sort_values(["truck_id", "forest_id"])
+#         .reset_index(drop=True)
+#     )
+#     return plan
+
+
+# #improved logic for the trips to reach park then count the cbm (so 0.5 and above, if it were 2.7 then do 3 trip volume collected )
+# import math
+# import pandas as pd #pandas library 
+# from ortools.linear_solver import pywraplp #OR tools is library for solving optimizing probs (scheduling, routing, and assignments)
+# #pywraplp part of OR tools, creates and solves linear programming and integer programming 
+
+# #CBC = coin or branch and cut solver - open source solver that can handle linear and int programming probs 
+# #telling OR tools to use CBC solver 
+
+# def solve_week(df: pd.DataFrame) -> pd.DataFrame:
+#     solver = pywraplp.Solver.CreateSolver("CBC")
+
+#     # Print problem size for diagnosis
+#     n_trucks = df.index.get_level_values(0).nunique()
+#     n_forests = df.index.get_level_values(1).nunique()
+#     print(f"Number of trucks: {n_trucks}")
+#     print(f"Number of forests: {n_forests}")
+#     print(f"Number of variables (truck-forest pairs): {len(df)}")
+
+#     # 1. Decision variables: x[t, f] = number of trips truck t makes to forest f (continuous)
+#     var = {}
+#     for (t, f), row in df.iterrows():
+#         # Upper bound: max trips possible for this truck to this forest (in hours), capped at 15
+#         if row.trip_hours > 0:
+#             phys_lim = row.drive_hours / row.trip_hours
+#         else:
+#             phys_lim = 0
+#         ub = min(max(0, phys_lim), 15)
+#         var[(t, f)] = solver.NumVar(0, ub, f"x_{t}_{f}")  # Continuous variable
+
+#     # 2. Constraint: Each truck can't exceed its available drive hours
+#     for t, t_rows in df.groupby(level=0):
+#         solver.Add(
+#             solver.Sum(row.trip_hours * var[(t, f)]
+#                        for (_, f), row in t_rows.iterrows())
+#             <= t_rows.drive_hours.iloc[0]
+#         )
+
+#     # 3. Constraint: Each forest can't have more logs picked up than its available volume
+#     for f, f_rows in df.groupby(level=1):
+#         solver.Add(
+#             solver.Sum(row.cbm_per_truck * var[(t, f)]
+#                        for (t, _), row in f_rows.iterrows())
+#             <= f_rows.weekly_stockpile_cbm.iloc[0]
+#         )
+
+#     # 4. Objective: Maximize total CBM delivered
+#     total_cbm = solver.Sum(df.loc[(t, f), "cbm_per_truck"] * var[(t, f)]
+#                            for (t, f) in var)
+#     solver.Maximize(total_cbm)
+
+#     # 5. Set a 10-minute (600,000 ms) time limit
+#     solver.set_time_limit(600000)
+
+#     # 6. Solve and extract the plan
+#     status = solver.Solve()
+#     if status not in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
+#         raise RuntimeError("CBC did not find an optimal or feasible solution within the time limit")
+#     if status == pywraplp.Solver.FEASIBLE:
+#         print("⚠️  Time limit reached: returning best feasible solution found.")
+
+#     def round_down_to_half(x):
+#         return math.floor(x * 2) / 2
+
+#     def effective_trips(x):
+#         frac = x - math.floor(x)
+#         if frac < 0.5:
+#             return math.floor(x)
+#         else:
+#             return math.ceil(x)
+
+#     # Build plan DataFrame (trips planned for display)
+#     plan = (
+#         pd.DataFrame(
+#             [
+#                 (t, f, round(round_down_to_half(var[(t, f)].solution_value()), 1))
+#                 for (t, f) in var
+#             ],
+#             columns=["truck_id", "forest_id", "trips_planned"],
+#         )
+#         .query("trips_planned > 0.01")
+#         .sort_values(["truck_id", "forest_id"])
+#         .reset_index(drop=True)
+#     )
+
+#     # Calculate effective trips and delivered CBM for each truck-forest pair
+#     plan["effective_trips"] = [
+#         effective_trips(var[(t, f)].solution_value()) for t, f in zip(plan["truck_id"], plan["forest_id"])
+#     ]
+#     # Get cbm_per_truck for each pair
+#     plan["cbm_per_truck"] = [
+#         df.loc[(t, f), "cbm_per_truck"] for t, f in zip(plan["truck_id"], plan["forest_id"])
+#     ]
+#     plan["delivered_cbm"] = plan["effective_trips"] * plan["cbm_per_truck"]
+
+#     # Calculate total CBM delivered and total effective trips
+#     total_cbm = plan["delivered_cbm"].sum()
+#     total_effective_trips = plan["effective_trips"].sum()
+
+#     # Calculate remaining volume for each forest
+#     forest_delivered = plan.groupby("forest_id")["delivered_cbm"].sum()
+#     forest_stock = df.reset_index().drop_duplicates("forest_id").set_index("forest_id")["weekly_stockpile_cbm"]
+#     # Get max cbm_per_truck for each forest
+#     cbm_per_truck_by_forest = plan.groupby("forest_id")["cbm_per_truck"].max()
+#     forest_remaining = (forest_stock - forest_delivered).fillna(forest_stock)
+
+#     print("\n---- Weekly summary (realistic) ----")
+#     print(f"Total effective trips : {total_effective_trips:,.0f}")
+#     print(f"Total CBM delivered   : {total_cbm:,.0f} m³")
+#     print("\n---- Remaining volume by forest ----")
+#     for forest, remaining in forest_remaining.items():
+#         cbm_truck = cbm_per_truck_by_forest.get(forest, 0)
+#         capped_remaining = max(remaining, -cbm_truck)
+#         print(f"{forest}: {capped_remaining:,.0f} m³ left")
+
+#     return plan
+
+
+
+# int values 
+
+#ACTUAL ONE - 
+
+# import math
+# import pandas as pd
+# from ortools.linear_solver import pywraplp
+
+# def solve_week(df: pd.DataFrame) -> pd.DataFrame:
+#     solver = pywraplp.Solver.CreateSolver("CBC")
+
+#     # Print problem size for diagnosis
+#     n_trucks = df.index.get_level_values(0).nunique()
+#     n_forests = df.index.get_level_values(1).nunique()
+#     print(f"Number of trucks: {n_trucks}")
+#     print(f"Number of forests: {n_forests}")
+#     print(f"Number of variables (truck-forest pairs): {len(df)}")
+
+#     # 1. Decision variables: x[t, f] = number of trips truck t makes to forest f (integer)
+#     var = {}
+#     for (t, f), row in df.iterrows():
+#         # Upper bound: max trips possible for this truck to this forest (in hours), capped at 15
+#         if row.trip_hours > 0:
+#             phys_lim = math.floor(row.drive_hours / row.trip_hours)
+#         else:
+#             phys_lim = 0
+#         ub = min(max(0, phys_lim), 15)
+#         var[(t, f)] = solver.IntVar(0, ub, f"x_{t}_{f}")  # Integer variable
+
+#     # 2. Constraint: Each truck can't exceed its available drive hours
+#     for t, t_rows in df.groupby(level=0):
+#         solver.Add(
+#             solver.Sum(row.trip_hours * var[(t, f)]
+#                        for (_, f), row in t_rows.iterrows())
+#             <= t_rows.drive_hours.iloc[0]
+#         )
+
+#     # 3. Constraint: Each forest can't have more logs picked up than its available volume
+#     for f, f_rows in df.groupby(level=1):
+#         solver.Add(
+#             solver.Sum(row.cbm_per_truck * var[(t, f)]
+#                        for (t, _), row in f_rows.iterrows())
+#             <= f_rows.weekly_stockpile_cbm.iloc[0]
+#         )
+
+#     # 4. Objective: Maximize total CBM delivered
+#     total_cbm = solver.Sum(df.loc[(t, f), "cbm_per_truck"] * var[(t, f)]
+#                            for (t, f) in var)
+#     solver.Maximize(total_cbm)
+
+#     # 5. Set a 10-minute (600,000 ms) time limit
+#     solver.set_time_limit(3000)
+
+#     # 6. Solve and extract the plan
+#     status = solver.Solve()
+#     if status not in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
+#         raise RuntimeError("CBC did not find an optimal or feasible solution within the time limit")
+#     if status == pywraplp.Solver.FEASIBLE:
+#         print("⚠️  Time limit reached: returning best feasible solution found.")
+
+#     plan = (
+#         pd.DataFrame(
+#             [(t, f, int(var[(t, f)].solution_value())) for (t, f) in var],
+#             columns=["truck_id", "forest_id", "trips_planned"],
+#         )
+#         .query("trips_planned > 0")
+#         .sort_values(["truck_id", "forest_id"])
+#         .reset_index(drop=True)
+#     )
+#     # Add cbm_per_truck for summary in scratch.py
+#     plan["cbm_per_truck"] = [
+#         df.loc[(t, f), "cbm_per_truck"] for t, f in zip(plan["truck_id"], plan["forest_id"])
+#     ]
+#     return plan
+
+
+
+
+import math
+import pandas as pd
+from ortools.linear_solver import pywraplp
+
+def solve_week(df: pd.DataFrame, maximize_profit=False) -> pd.DataFrame:
+    solver = pywraplp.Solver.CreateSolver("CBC")
+
+    n_trucks = df.index.get_level_values(0).nunique()
+    n_forests = df.index.get_level_values(1).nunique()
+    print(f"Number of trucks: {n_trucks}")
+    print(f"Number of forests: {n_forests}")
+    print(f"Number of variables (truck-forest pairs): {len(df)}")
+
+    var = {}
+    for (t, f), row in df.iterrows():
+        if row.trip_hours > 0:
+            phys_lim = math.floor(row.drive_hours / row.trip_hours)
+        else:
+            phys_lim = 0
+        ub = min(max(0, phys_lim), 15)
+        var[(t, f)] = solver.IntVar(0, ub, f"x_{t}_{f}")
+
+    for t, t_rows in df.groupby(level=0):
+        solver.Add(
+            solver.Sum(row.trip_hours * var[(t, f)]
+                       for (_, f), row in t_rows.iterrows())
+            <= t_rows.drive_hours.iloc[0]
+        )
+
+    for f, f_rows in df.groupby(level=1):
+        solver.Add(
+            solver.Sum(row.cbm_per_truck * var[(t, f)]
+                       for (t, _), row in f_rows.iterrows())
+            <= f_rows.weekly_stockpile_cbm.iloc[0]
+        )
+
+    if maximize_profit:
+        total_profit = solver.Sum(df.loc[(t, f), "cbm_per_truck"] * df.loc[(t, f), "profit_per_cbm_euros"] * var[(t, f)] for (t, f) in var)
+        solver.Maximize(total_profit)
+    else:
+        total_cbm = solver.Sum(df.loc[(t, f), "cbm_per_truck"] * var[(t, f)] for (t, f) in var)
+        solver.Maximize(total_cbm)
+
+    solver.set_time_limit(5000)
+
+    status = solver.Solve()
+    if status not in (pywraplp.Solver.OPTIMAL, pywraplp.Solver.FEASIBLE):
+        raise RuntimeError("CBC did not find an optimal or feasible solution within the time limit")
+    if status == pywraplp.Solver.FEASIBLE:
+        print("⚠️  Time limit reached: returning best feasible solution found.")
+
+    plan = (
+        pd.DataFrame(
+            [(t, f, int(var[(t, f)].solution_value())) for (t, f) in var],
+            columns=["truck_id", "forest_id", "trips_planned"],
+        )
+        .query("trips_planned > 0")
+        .sort_values(["truck_id", "forest_id"])
+        .reset_index(drop=True)
+    )
+    plan["cbm_per_truck"] = [
+        df.loc[(t, f), "cbm_per_truck"] for t, f in zip(plan["truck_id"], plan["forest_id"])
+    ]
+    return plan
+
+
+
+
+
+preprocess - 
+# """
+# Reads the csv files in data folder, joins them into a single 
+# truck-by-forest table, 
+# and engineers all the parameters the optimiser needs
+
+# output - 
+# A pandas DataFrame indexed by (truck_id, forest_id) with columns: 
+
+#     drive_days - how many days the truck is free this week 
+#     trip_days - rount trip duration for that forest 
+#     max_trips_wk - forest's weekly trip cap (dry / wet)
+#     cbm_per_truck - cubic metres one truck can haul on that forest 
+#     score - efficiency metric (cubic metre pert truck-day) = cbm_per_truck / trip_days 
+
+# How it works - 
+# reads the 2csv files 
+# converts the monthly caps into weekly caps 
+# computes drive_days for every truck (7 - maintenance)
+# cross joints trucks x forests so every row is a (truck,forest) pair
+# adds score = cbm_per_truck / trip_days 
+# returns dataframe to whoever calls it (optimiser)
+# """
+
+# import math
+# import pandas as pd 
+
+# # DAILY_KM = 300          # Max km a truck can drive in a day
+# # we'll be using this for now to get a rough estimate of trip_days 
+# #until we can get turn around time for each forest 
+# #even if we have 300KM per day for each truck then we hit max cap of 12,249 m^3 assuming all trucks functional 
+
+# #DEFAULT_MAINT_DAYS = 0    # Default maintenance days if missing 
+
+
+# def build_model_input(
+#     forests_csv: str = "data/forests.csv",
+#     trucks_csv: str = "data/trucks.csv",
+#     season: str = "dry",
+# ) -> pd.DataFrame: 
+    
+    
+#     # 1. Read and clean CSVs
+#     forests = pd.read_csv(forests_csv)
+#     forests.columns = forests.columns.str.strip().str.lower()
+#     trucks  = pd.read_csv(trucks_csv)
+#     trucks.columns  = trucks.columns.str.strip().str.lower()
+
+#     # Remove cbm_per_truck from forests if present
+#     if "cbm_per_truck" in forests.columns:
+#         forests = forests.drop(columns=["cbm_per_truck"])
+
+#     # 2. Set trip_hours for each forest (how many hours a round trip takes)
+#     season = season.lower()
+#     if season == "dry":
+#         forests["trip_hours"] = forests["turn_around_time_dry"]
+#     else:
+#         forests["trip_hours"] = forests["turn_around_time_rain"]
+
+#     # 3. Ensure each forest has a weekly stockpile (volume to be picked up)
+#     if "volume" not in forests.columns:
+#         raise ValueError("Add a 'volume' column to forests.csv (weekly CBM stock-pile)")
+#     forests["weekly_stockpile_cbm"] = forests["volume"]
+
+#     # 4. Remove forests with zero stock-pile (no logs to pick up)
+#     forests = forests[forests.weekly_stockpile_cbm > 0].copy()
+
+#     # 5. Calculate drive_hours for each truck (how many hours it can work this week)
+#     if "maintenance_hours" not in trucks.columns:
+#         trucks["maintenance_hours"] = 0
+#     if "drive_hours" not in trucks.columns:
+#         trucks["drive_hours"] = 52.5  # default, e.g. 5 days * 10.5 hours
+#     trucks["drive_hours"] = (trucks["drive_hours"] - trucks["maintenance_hours"]).clip(lower=0)
+
+#     # 6. Cross-join trucks and forests (all possible assignments)
+#     df = pd.merge(trucks, forests, how="cross")
+#     # Each row now has truck's cbm_per_truck
+
+#     # 7. Set a multi-index for the optimizer
+#     df = df.set_index(["truck_id", "forest_id"], verify_integrity=True)
+#     return df
+#     #make rows and columns names to truckid and forestid, verify it's all true (no dupes)
+
+
+
+"""
+Reads the csv files in data folder, joins them into a single 
+truck-by-forest table, 
+and engineers all the parameters the optimiser needs
+
+output - 
+A pandas DataFrame indexed by (truck_id, forest_id) with columns: 
+
+    drive_days - how many days the truck is free this week 
+    trip_days - rount trip duration for that forest 
+    max_trips_wk - forest's weekly trip cap (dry / wet)
+    cbm_per_truck - cubic metres one truck can haul on that forest 
+    score - efficiency metric (cubic metre pert truck-day) = cbm_per_truck / trip_days 
+
+How it works - 
+reads the 2csv files 
+converts the monthly caps into weekly caps 
+computes drive_days for every truck (7 - maintenance)
+cross joints trucks x forests so every row is a (truck,forest) pair
+adds score = cbm_per_truck / trip_days 
+returns dataframe to whoever calls it (optimiser)
+"""
+
+import math
+import pandas as pd 
+
+# DAILY_KM = 300          # Max km a truck can drive in a day
+# we'll be using this for now to get a rough estimate of trip_days 
+#until we can get turn around time for each forest 
+#even if we have 300KM per day for each truck then we hit max cap of 12,249 m^3 assuming all trucks functional 
+
+#DEFAULT_MAINT_DAYS = 0    # Default maintenance days if missing 
+
+
+def build_model_input(
+    forests_csv: str = "data/forests.csv",
+    trucks_csv: str = "data/trucks.csv",
+    season: str = "dry",
+) -> pd.DataFrame: 
+    
+    
+    # 1. Read and clean CSVs
+    forests = pd.read_csv(forests_csv)
+    forests.columns = forests.columns.str.strip().str.lower()
+    trucks  = pd.read_csv(trucks_csv)
+    trucks.columns  = trucks.columns.str.strip().str.lower()
+
+    # Remove cbm_per_truck from forests if present
+    if "cbm_per_truck" in forests.columns:
+        forests = forests.drop(columns=["cbm_per_truck"])
+
+    # 2. Set trip_hours for each forest (how many hours a round trip takes)
+    season = season.lower()
+    if season == "dry":
+        forests["trip_hours"] = forests["turn_around_time_dry"]
+    else:
+        forests["trip_hours"] = forests["turn_around_time_rain"]
+
+    # 3. Ensure each forest has a weekly stockpile (volume to be picked up)
+    if "volume" not in forests.columns:
+        raise ValueError("Add a 'volume' column to forests.csv (weekly CBM stock-pile)")
+    forests["weekly_stockpile_cbm"] = forests["volume"]
+
+    # 4. Remove forests with zero stock-pile (no logs to pick up)
+    forests = forests[forests.weekly_stockpile_cbm > 0].copy()
+
+    # 5. Calculate drive_hours for each truck (how many hours it can work this week)
+    if "maintenance_hours" not in trucks.columns:
+        trucks["maintenance_hours"] = 0
+    if "drive_hours" not in trucks.columns:
+        trucks["drive_hours"] = 52.5  # default, e.g. 5 days * 10.5 hours
+    trucks["drive_hours"] = (trucks["drive_hours"] - trucks["maintenance_hours"]).clip(lower=0)
+
+    # 6. Cross-join trucks and forests (all possible assignments)
+    df = pd.merge(trucks, forests, how="cross")
+    # Each row now has truck's cbm_per_truck
+
+    # 7. Set a multi-index for the optimizer
+    df = df.set_index(["truck_id", "forest_id"], verify_integrity=True)
+    return df
+    #make rows and columns names to truckid and forestid, verify it's all true (no dupes)
+

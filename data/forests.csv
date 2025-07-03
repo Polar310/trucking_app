@@ -1,17 +1,18 @@
-forest_id ,trip_days,max_trips_month_dry,max_trips_month_rain
-PFM ,,18,12
-Coco beach - AV,,15,10
-HuaJia ,,18,12
-GGFMI - Cocobeach,,15,10
-Gsez Mvoung -Biliba ,,7,6
-Somivab -Biliba,,5,4
-BSO - Abanga ,,5,4
-ANBG,,6,5
-WAKA,,5,4
-Ciplac - C.Leroy ,,5,4
-MPB - Mabanda ,,4,4
-GZW Mabota - Mabanda,,4.5,4
-EBDG,,4.5,4
-RTC - Makabana ,,4.5,4
-Sunly Nzenzele ,,4,4
-C.Leroy ,,18,15
+forest_id,max_trips_month_dry,Turn_around_time_dry,max_trips_month_rain,Turn_around_time_rain,roundtrip_km,volume,sale_price_per_cbm,profit_per_cbm_euros,,,
+PFM ,18,10.25,12,16.375,120,2500,25000,38.43,,,14000
+Coco beach - AV,15,12.7,10,20.05,220,1500,25000,28.49,,,
+HuaJia ,18,10.25,12,16.375,270,2000,15000,21.23,,,
+GGFMI - Cocobeach,15,12.7,10,20.05,180,0,0,0,,,
+RH - Ndjole,7,29.5,6,34.75,420,0,0,0,,,
+Gsez Mvoung -Biliba ,5,42.1,4,45.125,860,0,0,19.22,,,
+Somivab -Biliba,5,42.1,4,45.125,860,500,25000,38.16793893,,,
+BSO - Abanga ,6,34.75,5,42.1,660,0,0,18.2,,,
+ANBG,5,42.1,4,45.125,900,0,0,16.48,,,
+WAKA,5,42.1,4,45.125,900,0,0,37.9,,,
+Ciplac - C.Leroy ,4,45.125,4,45.125,820,2000,35000,27.1,,,
+MPB - Mabanda ,4.5,47,4,45.125,1160,2000,35000,53.4351145,,,
+GZW Mabota - Mabanda,4.5,47,4,45.125,1160,2000,35000,19.39,,,
+EBDG,4.5,47,4,45.125,1100,0,0,0,,,
+RTC - Makabana ,4.5,47,4,45.125,1240,1500,30000,18.45,,,
+Sunly Nzenzele ,4,45.125,4,45.125,1240,0,30000,19.28,,,
+JBG,18,10.25,15,12.7,130,0,25000,19.39,,,
