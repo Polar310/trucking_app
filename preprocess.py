@@ -157,6 +157,11 @@ def build_model_input(
 
     # 6. Cross-join trucks and forests (all possible assignments)
     df = pd.merge(trucks, forests, how="cross")
+    # --- NEW CONSTRAINT: MAN trucks (1-32) can only do roundtrip_km <= 500 ---
+    df['truck_id'] = df['truck_id'].astype(int)
+    df['roundtrip_km'] = df['roundtrip_km'].astype(float)
+    is_man = df['truck_id'].between(1, 32)
+    df = df[~(is_man & (df['roundtrip_km'] > 500))]
     # Each row now has truck's cbm_per_truck
 
     # 7. Set a multi-index for the optimizer
