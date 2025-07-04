@@ -36,6 +36,7 @@ st.markdown("""
     }
     .stMetric {
         border-left: 6px solid #388e3c;
+        border-right: 6px solid #388e3c;
         margin-right: 1em;
     }
     .stDataFrame {
@@ -208,45 +209,23 @@ if forests_file and trucks_file:
     forests_df["profit_per_trip"] = forests_df["cbm_per_truck"] * forests_df["profit_per_cbm_euros"]
     # Pass profit_per_trip to helper_maxflow
     extra_assignments = helper_maxflow.top_up_with_flow(idle_df, forests_df)
-    # --- Safe max-flow assignment handling (reflecting scratch.py logic) ---
-    rows = []
-    for a in extra_assignments:
-        key = (int(a["truck_id"]), a["forest_id"])
-        if key in df.index:
-            cbm_per_truck = df.loc[key, "cbm_per_truck"]
-            rows.append({
-                "truck_id": a["truck_id"],
-                "forest_id": a["forest_id"],
-                "trips_planned": a["trips"],
-                "cbm_per_truck": cbm_per_truck
-            })
-        # else: could log or st.write(f"Skipping invalid assignment: {key}")
-    new_plan = pd.DataFrame(rows)
-    if not new_plan.empty:
-        st.subheader("🟢 Extra Assignments from Max-Flow (Full Trips)")
-        st.dataframe(new_plan, use_container_width=True)
-        st.write(f"Extra CBM from max-flow full trips: {new_plan['trips_planned'].mul(new_plan['cbm_per_truck']).sum():,.0f} m³")
-    else:
-        st.info("No valid assignments could be made in the second pass (max-flow, full trips).")
-
     half_assignments = helper_maxflow.half_trip_maxflow(idle_df, forests_df)
     half_cbm = sum(a["cbm_collected"] for a in half_assignments) if half_assignments else 0
 
-    # --- Compute summary statistics for the summary dictionary ---
+    # --- Compute summary statistics for the summary dictionary (move this up) ---
     total_cbm = (plan['trips_planned'] * plan['cbm_per_truck']).sum()
     total_trips = plan['trips_planned'].sum()
     trucks_used = plan['truck_id'].nunique()
     trucks_total = pd.read_csv(trucks_path)['truck_id'].nunique()
     trucks_unused = trucks_total - trucks_used
-
-    # --- Output to Streamlit ---
-    total_profit = allocations['Profit'].sum()
+    # Only profit from full trips (main plan)
+    total_profit_full_trips = allocations['Profit'].sum()
     summary = {
         "Total CBM": total_cbm,
         "Total Trips": total_trips,
         "Trucks Used": trucks_used,
         "Trucks Unused": trucks_unused,
-        "Total Profit Euros": total_profit,
+        "Total Profit Euros": total_profit_full_trips,
     }
 
     # --- Output: Summary Statistics ---
@@ -256,8 +235,7 @@ if forests_file and trucks_file:
     col2.metric("Total Trips", f"{summary['Total Trips']:,}")
     col3.metric("Trucks Used", f"{summary['Trucks Used']:,}")
     col4.metric("Trucks Unused", f"{summary['Trucks Unused']:,}")
-    # Only show profit in a new row
-    col5 = st.columns(1)[0]
+    col5= st.columns(1)[0]
     col5.metric("Total Profit (Euros)", f"€ {summary['Total Profit Euros']:,.0f}")
 
     # --- Output: Unused Trucks ---
@@ -265,13 +243,40 @@ if forests_file and trucks_file:
         st.subheader("🚚 Unused Trucks")
         st.dataframe(unassigned[["truck_id", "type"]], use_container_width=True)
         unused_csv = unassigned[["truck_id", "type"]].to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Download Unused Trucks as CSV",
-            data=unused_csv,
-            file_name="unused_trucks.csv",
-            mime="text/csv",
-        )
+        # st.download_button(
+        #     label="Download Unused Trucks as CSV",
+        #     data=unused_csv,
+        #     file_name="unused_trucks.csv",
+        #     mime="text/csv",
+        # )
 
+    
+    # --- Show half-trip max-flow assignments in the UI (moved here) ---
+    if half_assignments:
+        half_plan = pd.DataFrame(half_assignments)
+        if 'cbm_collected' in half_plan.columns:
+            half_plan = half_plan.drop(columns=['cbm_collected'])
+        st.subheader("½ Extra Assignments from Max-Flow (Half Trips)")
+        st.write("If you'd like to push more volume then you can do 1/2 trips with the remaining trucks, and here's the breakdown:")
+        # Assign cbm_per_truck based on truck_id (MAN: 1-32 = 45, Shacman: 33-91 = 55)
+        def assign_cbm(truck_id):
+            tid = int(truck_id)
+            return 45 if 1 <= tid <= 32 else 55
+        half_plan['cbm_per_truck'] = half_plan['truck_id'].apply(assign_cbm)
+        # Map profit_per_cbm_euros from forests_df
+        profit_cbm_map = forests_df.set_index('forest_id')['profit_per_cbm_euros'].to_dict()
+        half_plan['profit_per_cbm_euros'] = half_plan['forest_id'].map(profit_cbm_map)
+        # Calculate profit for each assignment as cbm_per_truck * profit_per_cbm_euros
+        half_plan['profit'] = half_plan['cbm_per_truck'] * half_plan['profit_per_cbm_euros']
+        st.dataframe(half_plan, use_container_width=True)
+        st.write(f"<b>Extra CBM from max-flow half trips:</b> <b>{half_plan['cbm_per_truck'].sum():,.0f} m³</b>", unsafe_allow_html=True)
+        total_half_trip_profit = half_plan['profit'].sum()
+        st.write(f"<b>Profit from half trips (full load per assignment):</b> <b>€ {total_half_trip_profit:,.0f}</b>", unsafe_allow_html=True)
+        st.write(f"<b>Total profit (full trips + half trips):</b> <b>€ {total_profit_full_trips + total_half_trip_profit:,.0f}</b>", unsafe_allow_html=True)
+    else:
+        st.info("No additional assignments could be made in the half-trip max-flow phase.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
     # --- Output: Forest Allocations ---
     st.subheader("🌲 Forest Allocations")
     st.dataframe(allocations, use_container_width=True)
@@ -284,7 +289,7 @@ if forests_file and trucks_file:
     breakdown_table = truck_trip_breakdown.merge(total_trips_per_forest, on='Forest', how='left')
 
     # --- Per-Forest Truck Trip Breakdown (HTML table with wrapping, no container) ---
-    st.subheader("🚚 Per-Forest Truck Trip Breakdown")
+    st.subheader(" Per-Forest Truck Trip Breakdown")
     st.markdown(
         '<style>'
         '.custom-table td {'
@@ -302,15 +307,16 @@ if forests_file and trucks_file:
         + breakdown_table.to_html(index=False, classes='custom-table', escape=False),
         unsafe_allow_html=True
     )
-    # --- Download button for breakdown table as CSV ---
-    breakdown_csv = breakdown_table.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Truck Trip Breakdown as CSV",
-        data=breakdown_csv,
-        file_name="truck_trip_breakdown.csv",
-        mime="text/csv",
-    )
+    # # --- Download button for breakdown table as CSV ---
+    # breakdown_csv = breakdown_table.to_csv(index=False).encode('utf-8')
+    # st.download_button(
+    #     label="Download Truck Trip Breakdown as CSV",
+    #     data=breakdown_csv,
+    #     file_name="truck_trip_breakdown.csv",
+    #     mime="text/csv",
+    # )
 
+    st.markdown("<br><br>", unsafe_allow_html=True)
     # --- Function to generate daily forest-truck plan DataFrame from plan DataFrame ---
     def generate_daily_forest_plan(plan_df):
         trips_by_truck = defaultdict(list)

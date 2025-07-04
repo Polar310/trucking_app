@@ -1,92 +1,104 @@
 truck_id,forest_id,trips_planned,cbm_per_truck,profit
 1,PFM ,5,45,8646.75
+2,HuaJia ,4,45,3821.4
+2,PFM ,1,45,1729.35
+3,PFM ,3,45,5188.05
 5,PFM ,2,45,3458.7
-6,PFM ,5,45,8646.75
+6,HuaJia ,1,45,955.35
+6,PFM ,4,45,6917.4
 7,Coco beach - AV,4,45,5128.2
 8,Coco beach - AV,4,45,5128.2
-9,PFM ,5,45,8646.75
-11,HuaJia ,5,45,4776.75
-12,PFM ,5,45,8646.75
+9,PFM ,4,45,6917.4
+11,HuaJia ,4,45,3821.4
+12,PFM ,4,45,6917.4
 13,Coco beach - AV,4,45,5128.2
-14,HuaJia ,1,45,955.35
-15,Coco beach - AV,4,45,5128.2
-17,HuaJia ,5,45,4776.75
-18,HuaJia ,5,45,4776.75
-19,PFM ,5,45,8646.75
-21,Coco beach - AV,1,45,1282.05
+14,Coco beach - AV,1,45,1282.05
+14,HuaJia ,3,45,2866.05
+15,Coco beach - AV,2,45,2564.1
+17,HuaJia ,3,45,2866.05
+19,HuaJia ,1,45,955.35
+19,PFM ,4,45,6917.4
 22,Coco beach - AV,4,45,5128.2
 24,PFM ,5,45,8646.75
 25,Coco beach - AV,4,45,5128.2
-26,Coco beach - AV,4,45,5128.2
+26,Coco beach - AV,3,45,3846.1499999999996
 28,HuaJia ,5,45,4776.75
 29,HuaJia ,5,45,4776.75
 30,PFM ,5,45,8646.75
-31,Coco beach - AV,4,45,5128.2
-32,PFM ,5,45,8646.75
-33,MPB - Mabanda ,1,55,2938.9312975
-34,GZW Mabota - Mabanda,1,55,1066.45
-35,Ciplac - C.Leroy ,1,55,1490.5
-36,Ciplac - C.Leroy ,1,55,1490.5
+33,GZW Mabota - Mabanda,1,55,1066.45
+33,PFM ,1,55,2113.65
+34,MPB - Mabanda ,1,55,2938.9312975
+35,GZW Mabota - Mabanda,1,55,1066.45
+36,Coco beach - AV,1,55,1566.9499999999998
+36,Gsez Mvoung -Biliba ,1,55,1057.1
 37,Ciplac - C.Leroy ,1,55,1490.5
-38,MPB - Mabanda ,1,55,2938.9312975
-39,GZW Mabota - Mabanda,1,55,1066.45
-40,Gsez Mvoung -Biliba ,1,55,1057.1
-40,HuaJia ,1,55,1167.65
-41,GZW Mabota - Mabanda,1,55,1066.45
-42,Ciplac - C.Leroy ,1,55,1490.5
-43,GZW Mabota - Mabanda,1,55,1066.45
-44,Ciplac - C.Leroy ,1,55,1490.5
-45,Ciplac - C.Leroy ,1,55,1490.5
-46,Ciplac - C.Leroy ,1,55,1490.5
-47,MPB - Mabanda ,1,55,2938.9312975
+38,GZW Mabota - Mabanda,1,55,1066.45
+39,Coco beach - AV,1,55,1566.9499999999998
+39,Gsez Mvoung -Biliba ,1,55,1057.1
+40,GZW Mabota - Mabanda,1,55,1066.45
+41,HuaJia ,1,55,1167.65
+41,MPB - Mabanda ,1,55,2938.9312975
+42,Coco beach - AV,1,55,1566.9499999999998
+42,Gsez Mvoung -Biliba ,1,55,1057.1
+43,MPB - Mabanda ,1,55,2938.9312975
+44,GZW Mabota - Mabanda,1,55,1066.45
+44,HuaJia ,1,55,1167.65
+45,Coco beach - AV,1,55,1566.9499999999998
+45,Gsez Mvoung -Biliba ,1,55,1057.1
+46,GZW Mabota - Mabanda,1,55,1066.45
+46,HuaJia ,1,55,1167.65
+47,Ciplac - C.Leroy ,1,55,1490.5
 48,Ciplac - C.Leroy ,1,55,1490.5
 49,Ciplac - C.Leroy ,1,55,1490.5
-50,MPB - Mabanda ,1,55,2938.9312975
-51,MPB - Mabanda ,1,55,2938.9312975
-52,Gsez Mvoung -Biliba ,1,55,1057.1
-52,PFM ,1,55,2113.65
+50,Ciplac - C.Leroy ,1,55,1490.5
+51,Ciplac - C.Leroy ,1,55,1490.5
+52,Ciplac - C.Leroy ,1,55,1490.5
 53,MPB - Mabanda ,1,55,2938.9312975
-54,Ciplac - C.Leroy ,1,55,1490.5
-55,Gsez Mvoung -Biliba ,1,55,1057.1
-55,HuaJia ,1,55,1167.65
+54,Coco beach - AV,1,55,1566.9499999999998
+54,Gsez Mvoung -Biliba ,1,55,1057.1
+55,GZW Mabota - Mabanda,1,55,1066.45
 56,Ciplac - C.Leroy ,1,55,1490.5
-57,MPB - Mabanda ,1,55,2938.9312975
+57,Ciplac - C.Leroy ,1,55,1490.5
 58,MPB - Mabanda ,1,55,2938.9312975
-59,Gsez Mvoung -Biliba ,1,55,1057.1
-59,HuaJia ,1,55,1167.65
-60,Gsez Mvoung -Biliba ,1,55,1057.1
-60,HuaJia ,1,55,1167.65
+59,Ciplac - C.Leroy ,1,55,1490.5
+60,MPB - Mabanda ,1,55,2938.9312975
 61,MPB - Mabanda ,1,55,2938.9312975
-62,MPB - Mabanda ,1,55,2938.9312975
-63,MPB - Mabanda ,1,55,2938.9312975
-64,GZW Mabota - Mabanda,1,55,1066.45
-65,Ciplac - C.Leroy ,1,55,1490.5
-66,GZW Mabota - Mabanda,1,55,1066.45
-67,Ciplac - C.Leroy ,1,55,1490.5
-68,GZW Mabota - Mabanda,1,55,1066.45
-69,MPB - Mabanda ,1,55,2938.9312975
-70,MPB - Mabanda ,1,55,2938.9312975
+61,PFM ,1,55,2113.65
+62,GZW Mabota - Mabanda,1,55,1066.45
+62,PFM ,1,55,2113.65
+63,GZW Mabota - Mabanda,1,55,1066.45
+63,PFM ,1,55,2113.65
+64,MPB - Mabanda ,1,55,2938.9312975
+65,MPB - Mabanda ,1,55,2938.9312975
+66,MPB - Mabanda ,1,55,2938.9312975
+67,GZW Mabota - Mabanda,1,55,1066.45
+68,Ciplac - C.Leroy ,1,55,1490.5
+69,Ciplac - C.Leroy ,1,55,1490.5
+70,Ciplac - C.Leroy ,1,55,1490.5
 71,GZW Mabota - Mabanda,1,55,1066.45
-72,Gsez Mvoung -Biliba ,1,55,1057.1
-72,HuaJia ,1,55,1167.65
-73,MPB - Mabanda ,1,55,2938.9312975
-74,Ciplac - C.Leroy ,1,55,1490.5
-75,Ciplac - C.Leroy ,1,55,1490.5
+72,MPB - Mabanda ,1,55,2938.9312975
+73,GZW Mabota - Mabanda,1,55,1066.45
+74,MPB - Mabanda ,1,55,2938.9312975
+75,HuaJia ,1,55,1167.65
+75,MPB - Mabanda ,1,55,2938.9312975
 76,GZW Mabota - Mabanda,1,55,1066.45
-77,Gsez Mvoung -Biliba ,1,55,1057.1
-77,PFM ,1,55,2113.65
-78,MPB - Mabanda ,1,55,2938.9312975
-79,MPB - Mabanda ,1,55,2938.9312975
+77,Ciplac - C.Leroy ,1,55,1490.5
+78,GZW Mabota - Mabanda,1,55,1066.45
+79,GZW Mabota - Mabanda,1,55,1066.45
 80,Ciplac - C.Leroy ,1,55,1490.5
 81,GZW Mabota - Mabanda,1,55,1066.45
-82,GZW Mabota - Mabanda,1,55,1066.45
-83,GZW Mabota - Mabanda,1,55,1066.45
+82,Ciplac - C.Leroy ,1,55,1490.5
+83,Ciplac - C.Leroy ,1,55,1490.5
 84,GZW Mabota - Mabanda,1,55,1066.45
-85,MPB - Mabanda ,1,55,2938.9312975
+84,HuaJia ,1,55,1167.65
+85,Ciplac - C.Leroy ,1,55,1490.5
 86,MPB - Mabanda ,1,55,2938.9312975
-87,Ciplac - C.Leroy ,1,55,1490.5
-88,GZW Mabota - Mabanda,1,55,1066.45
-89,Ciplac - C.Leroy ,1,55,1490.5
-90,Gsez Mvoung -Biliba ,1,55,1057.1
+86,PFM ,1,55,2113.65
+87,MPB - Mabanda ,1,55,2938.9312975
+88,MPB - Mabanda ,1,55,2938.9312975
+89,Coco beach - AV,1,55,1566.9499999999998
+89,Gsez Mvoung -Biliba ,1,55,1057.1
 90,HuaJia ,1,55,1167.65
-91,GZW Mabota - Mabanda,1,55,1066.45
+90,MPB - Mabanda ,1,55,2938.9312975
+91,MPB - Mabanda ,1,55,2938.9312975
+91,PFM ,1,55,2113.65
